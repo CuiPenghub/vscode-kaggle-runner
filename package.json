@@ -412,7 +412,7 @@
     "viewsWelcome": [
       {
         "view": "kaggleHomeView",
-        "contents": "# Kaggle Runner\n\nWelcome to Kaggle Runner extension!\n\n[📦 Init Project](command:kaggle.initProject)\n\n---\n\n**Quick Links:**\n- [🏃 Runs](command:kaggle.focusRunsView) - View your run history\n- [📓 My Notebooks](command:kaggle.focusMyNotebooksView) - Browse notebooks\n- [📊 Datasets](command:kaggle.focusDatasetsView) - Explore datasets\n- [🏆 Competitions](command:kaggle.focusCompetitionsView) - Join competitions",
+        "contents": "Kaggle Runner\n\n[📦 Init Project](command:kaggle.initProject)\n\n---\n\nQuick Links:\n\n[🏃 Runs](command:kaggle.focusRunsView) - View your run history\n\n[📓 My Notebooks](command:kaggle.focusMyNotebooksView) - Browse notebooks\n\n[📊 Datasets](command:kaggle.focusDatasetsView) - Explore datasets\n\n[🏆 Competitions](command:kaggle.focusCompetitionsView) - Join competitions",
         "when": "kaggle.isSignedIn"
       },
       {
