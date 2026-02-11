@@ -84,6 +84,7 @@ async function ensureKernelMetadata(notebookPath: string): Promise<boolean> {
 
 let statusBarItem: vscode.StatusBarItem;
 let isRunning = false;
+let runsProvider: RunsProvider;
 
 export async function activate(context: vscode.ExtensionContext) {
   console.log('Kaggle extension activated!');
@@ -113,7 +114,7 @@ export async function activate(context: vscode.ExtensionContext) {
       console.log('Error checking CLI status:', error);
     }
   }, 2000); // Longer delay to ensure extension is fully activated first
-  const runsProvider = new RunsProvider(context);
+  runsProvider = new RunsProvider(context);
   context.subscriptions.push(
     vscode.window.registerTreeDataProvider('kaggleRunsView', runsProvider)
   );
@@ -667,13 +668,31 @@ export async function activate(context: vscode.ExtensionContext) {
           if (cfg.get<boolean>('autoDownloadOnComplete', true)) {
             const kernelId = (meta.id as string) || yml.kernel_slug;
             if (kernelId) {
-              await pollAndDownload(
-                context,
-                kernelId,
-                root,
-                cfg.get<number>('pollIntervalSeconds', 10),
-                cfg.get<number>('pollTimeoutSeconds', 600)
-              );
+              setRunningState(true);
+              try {
+                await vscode.window.withProgress(
+                  {
+                    location: vscode.ProgressLocation.Notification,
+                    title: 'Kaggle Run',
+                    cancellable: true,
+                  },
+                  async progress => {
+                    progress.report({ message: 'Waiting for run to complete...', increment: 0 });
+                    await pollAndDownload(
+                      context,
+                      kernelId,
+                      root,
+                      cfg.get<number>('pollIntervalSeconds', 10),
+                      cfg.get<number>('pollTimeoutSeconds', 600),
+                      (status, p) => {
+                        progress.report({ message: status, increment: p });
+                      }
+                    );
+                  }
+                );
+              } finally {
+                setRunningState(false);
+              }
             }
           } else {
             const open = url ? 'Open Run' : undefined;
@@ -742,21 +761,53 @@ export async function activate(context: vscode.ExtensionContext) {
 
           setRunningState(false);
 
-          // Try to extract a URL from stdout
           const urlMatch = res.stdout.match(/https?:\/\/www\.kaggle\.com\/[\w\-\/]+/);
           const url = urlMatch ? urlMatch[0] : undefined;
           if (url) {
             await logRun(root, url);
             runsProvider.refresh();
-            const open = 'Open Run';
-            const dl = 'Download Outputs';
-            const choice = await vscode.window.showInformationMessage(
-              'Kaggle run triggered.',
-              open,
-              dl
-            );
-            if (choice === open) vscode.env.openExternal(vscode.Uri.parse(url));
-            if (choice === dl) vscode.commands.executeCommand('kaggle.downloadOutputs');
+
+            const cfg = vscode.workspace.getConfiguration('kaggle');
+            if (cfg.get<boolean>('autoDownloadOnComplete', true)) {
+              const kernelId = (meta.id as string) || yml.kernel_slug;
+              if (kernelId) {
+                setRunningState(true);
+                try {
+                  await vscode.window.withProgress(
+                    {
+                      location: vscode.ProgressLocation.Notification,
+                      title: 'Kaggle Run',
+                      cancellable: true,
+                    },
+                    async progress => {
+                      progress.report({ message: 'Waiting for run to complete...', increment: 0 });
+                      await pollAndDownload(
+                        context,
+                        kernelId,
+                        root,
+                        cfg.get<number>('pollIntervalSeconds', 10),
+                        cfg.get<number>('pollTimeoutSeconds', 600),
+                        (status, p) => {
+                          progress.report({ message: status, increment: p });
+                        }
+                      );
+                    }
+                  );
+                } finally {
+                  setRunningState(false);
+                }
+              }
+            } else {
+              const open = 'Open Run';
+              const dl = 'Download Outputs';
+              const choice = await vscode.window.showInformationMessage(
+                'Kaggle run triggered.',
+                open,
+                dl
+              );
+              if (choice === open) vscode.env.openExternal(vscode.Uri.parse(url));
+              if (choice === dl) vscode.commands.executeCommand('kaggle.downloadOutputs');
+            }
           } else {
             vscode.window.showInformationMessage('Kaggle push finished.');
           }
@@ -1074,29 +1125,42 @@ async function pollAndDownload(
   kernelId: string,
   root: string,
   intervalSeconds: number,
-  timeoutSeconds: number
+  timeoutSeconds: number,
+  onStatus?: (status: string, progress: number) => void
 ) {
   const yml = (yaml.load(await fs.promises.readFile(path.join(root, 'kaggle.yml'), 'utf8')) ||
     {}) as KaggleYml;
   const dest = path.join(root, yml.outputs?.download_to || '.kaggle-outputs');
   await ensureFolder(dest);
   const start = Date.now();
+  const totalTimeout = timeoutSeconds * 1000;
 
-  while (Date.now() - start < timeoutSeconds * 1000) {
+  onStatus?.('Waiting for Kaggle run to complete...', 0);
+
+  while (Date.now() - start < totalTimeout) {
+    const elapsed = Date.now() - start;
+    const progress = Math.min(90, (elapsed / totalTimeout) * 100);
+    const remaining = Math.ceil((totalTimeout - elapsed) / 1000);
+
     try {
       await runKaggleCLI(context, ['kernels', 'output', kernelId, '-p', dest], root);
-      // Check if files exist
       const items = await fs.promises.readdir(dest);
       if (items.length > 0) {
+        onStatus?.('Complete!', 100);
         vscode.window.showInformationMessage(`Kaggle run completed. Outputs downloaded to ${dest}`);
+        runsProvider.refresh();
         return;
       }
     } catch {
       // Not ready yet; ignore
     }
+
+    onStatus?.(`Waiting for outputs... (${remaining}s remaining)`, progress);
     await new Promise(r => setTimeout(r, Math.max(1000, intervalSeconds * 1000)));
   }
+
+  onStatus?.('Timed out', 0);
   vscode.window.showWarningMessage(
-    'Timed out waiting for Kaggle run to complete. You can download outputs later via Kaggle: Download Outputs.'
+    'Timed out waiting for Kaggle run to complete. You can download outputs later via "Kaggle: Download Outputs".'
   );
 }

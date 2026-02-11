@@ -2,7 +2,7 @@
   "name": "kaggle-runner",
   "displayName": "Kaggle Runner",
   "description": "Develop locally, run on Kaggle compute. Push notebooks/scripts, toggle GPU/TPU, fetch outputs.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publisher": "PengCui",
   "author": "Peng Cui",
   "license": "MIT",

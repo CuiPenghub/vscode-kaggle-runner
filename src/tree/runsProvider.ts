@@ -13,8 +13,29 @@ interface RunItem {
 export class RunsProvider implements vscode.TreeDataProvider<RunItem> {
   private _onDidChangeTreeData = new vscode.EventEmitter<void>();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
+  private refreshInterval: ReturnType<typeof setInterval> | undefined;
 
-  constructor(private context: vscode.ExtensionContext) {}
+  constructor(private context: vscode.ExtensionContext) {
+    this.startAutoRefresh();
+  }
+
+  dispose() {
+    this.stopAutoRefresh();
+  }
+
+  private startAutoRefresh() {
+    this.refreshInterval = setInterval(() => {
+      this._onDidChangeTreeData.fire();
+    }, 10000);
+    this.context.subscriptions.push({ dispose: () => this.stopAutoRefresh() });
+  }
+
+  private stopAutoRefresh() {
+    if (this.refreshInterval) {
+      clearInterval(this.refreshInterval);
+      this.refreshInterval = undefined;
+    }
+  }
 
   refresh() {
     this._onDidChangeTreeData.fire();
