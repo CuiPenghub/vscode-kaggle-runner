@@ -13,12 +13,16 @@ export function registerAuthCommands(context: vscode.ExtensionContext): vscode.D
       const creds = await getKaggleCreds(context);
       console.log('Auth context: Signed in as', creds.username);
       await vscode.commands.executeCommand('setContext', 'kaggle.isSignedIn', true);
+      await vscode.workspace.getConfiguration('kaggle').update('isSignedIn', true, true);
+      await vscode.workspace.getConfiguration('kaggle').update('username', creds.username, true);
     } catch (error) {
       console.log(
         'Auth context: Not signed in -',
         error instanceof Error ? error.message : String(error)
       );
       await vscode.commands.executeCommand('setContext', 'kaggle.isSignedIn', false);
+      await vscode.workspace.getConfiguration('kaggle').update('isSignedIn', false, true);
+      await vscode.workspace.getConfiguration('kaggle').update('username', null, true);
     }
   }
 

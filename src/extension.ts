@@ -262,10 +262,14 @@ export async function activate(context: vscode.ExtensionContext) {
   console.log('Kaggle extension activated!');
   async function updateAuthContext() {
     try {
-      await getKaggleCreds(context);
+      const creds = await getKaggleCreds(context);
       await vscode.commands.executeCommand('setContext', 'kaggle.isSignedIn', true);
+      await vscode.workspace.getConfiguration('kaggle').update('isSignedIn', true, true);
+      await vscode.workspace.getConfiguration('kaggle').update('username', creds.username, true);
     } catch {
       await vscode.commands.executeCommand('setContext', 'kaggle.isSignedIn', false);
+      await vscode.workspace.getConfiguration('kaggle').update('isSignedIn', false, true);
+      await vscode.workspace.getConfiguration('kaggle').update('username', null, true);
     }
   }
   await updateAuthContext();
@@ -562,7 +566,7 @@ export async function activate(context: vscode.ExtensionContext) {
               'No'
             );
             if (create === 'Yes') {
-              await initProject(root);
+              await initProject(root, context);
             } else {
               return;
             }
@@ -614,7 +618,7 @@ export async function activate(context: vscode.ExtensionContext) {
             'No'
           );
           if (create === 'Yes') {
-            await initProject(root);
+            await initProject(root, context);
           } else {
             return;
           }
@@ -685,7 +689,7 @@ export async function activate(context: vscode.ExtensionContext) {
           'No'
         );
         if (create === 'Yes') {
-          await initProject(root);
+          await initProject(root, context);
         } else {
           return;
         }
@@ -757,7 +761,7 @@ export async function activate(context: vscode.ExtensionContext) {
       const root = getWorkspaceFolder();
       if (!root) return vscode.window.showErrorMessage('Open a folder first.');
       try {
-        await initProject(root);
+        await initProject(root, context);
       } catch (e) {
         showError(e);
       }
@@ -803,7 +807,7 @@ export async function activate(context: vscode.ExtensionContext) {
           .then(() => true)
           .catch(() => false))
       ) {
-        await initProject(root);
+        await initProject(root, context);
       }
 
       const yml = (yaml.load(await fs.promises.readFile(ymlPath, 'utf8')) || {}) as KaggleYml;

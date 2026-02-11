@@ -469,6 +469,20 @@
           "type": "number",
           "default": 600,
           "description": "How long to poll for completion before giving up."
+        },
+        "kaggle.username": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null,
+          "markdownDescription": "Your Kaggle username. Set automatically when you sign in via `Kaggle: Sign In` command."
+        },
+        "kaggle.isSignedIn": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether you are signed in to Kaggle.",
+          "readOnly": true
         }
       }
     }
