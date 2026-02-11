@@ -1,5 +1,7 @@
 # Kaggle Runner VSCode Extension
 
+[简体中文](README_CN.md) | English
+
 Run Jupyter notebooks and Python scripts directly on Kaggle cloud from VSCode.
 
 [📦 Install Extension](https://marketplace.visualstudio.com/)
@@ -136,31 +138,24 @@ Push → 📊 Status bar → 🔄 Background polling → ✅ Auto completion not
 
 ## 🔧 Technical Architecture
 
-```
-┌─────────────────────────────────────────────────────┐
-│                    VSCode                                │
-├─────────────────────────────────────────────────────┤
-│  Kaggle Runner Extension                                │
-│  ├── 🏠 Home View (NEW)                               │
-│  ├── 🏃 Runs View                                      │
-│  ├── 📓 My Notebooks View                              │
-│  ├── 📊 Datasets View                                  │
-│  ├── 🏆 Competitions View                              │
-│  ├── 🖥️ Status Bar Integration (NEW)                  │
-│  └── ⚙️ Smart Configuration                           │
-├─────────────────────────────────────────────────────┤
-│                   Kaggle CLI                             │
-│  ├── kernels push    Push & run                        │
-│  ├── kernels status  Query status ← Smart polling     │
-│  ├── kernels output  Download output                   │
-│  ├── datasets list   Dataset list                      │
-│  ├── competitions   Competition list                   │
-│  └── notebooks list  Notebook list                     │
-├─────────────────────────────────────────────────────┤
-│                  Kaggle API                              │
-│               https://www.kaggle.com/api               │
-└─────────────────────────────────────────────────────┘
-```
+### Architecture Layers
+
+| Layer          | Components                                                                                          |
+| -------------- | --------------------------------------------------------------------------------------------------- |
+| **VSCode IDE** | Kaggle Runner Extension (Home/Runs/Notebooks/Datasets/Competitions Views, Status Bar, Smart Config) |
+| **Kaggle CLI** | kernels push/status/output, datasets/competitions browse                                            |
+| **Kaggle API** | https://www.kaggle.com/api                                                                          |
+
+### Component Details
+
+| Layer         | Components                                          | Description          |
+| ------------- | --------------------------------------------------- | -------------------- |
+| **UI Layer**  | Home, Runs, Notebooks, Datasets, Competitions Views | Visual interface     |
+|               | Status Bar                                          | Real-time run status |
+|               | Smart Configuration                                 | User settings        |
+| **CLI Layer** | kernels push/status/output                          | Core operations      |
+|               | datasets/competitions list                          | Browse resources     |
+| **API Layer** | Kaggle REST API                                     | Backend services     |
 
 ### Core Workflow
 
