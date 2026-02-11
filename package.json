@@ -201,6 +201,11 @@
     "views": {
       "kaggle": [
         {
+          "id": "kaggleHomeView",
+          "name": "Home",
+          "icon": "$(home)"
+        },
+        {
           "id": "kaggleRunsView",
           "name": "Runs",
           "icon": "$(play-circle)"
@@ -328,11 +333,6 @@
       ],
       "view/title": [
         {
-          "command": "kaggle.initProject",
-          "when": "view == kaggleRunsView",
-          "group": "navigation@1"
-        },
-        {
           "command": "kaggle.refreshMyNotebooks",
           "when": "view == kaggleMyNotebooksView",
           "group": "navigation@1"
@@ -410,6 +410,11 @@
       ]
     },
     "viewsWelcome": [
+      {
+        "view": "kaggleHomeView",
+        "contents": "# Kaggle Runner\n\nWelcome to Kaggle Runner extension!\n\n[📦 Init Project](command:kaggle.initProject)\n\n---\n\n**Quick Links:**\n- [🏃 Runs](command:kaggle.focusRunsView) - View your run history\n- [📓 My Notebooks](command:kaggle.focusMyNotebooksView) - Browse notebooks\n- [📊 Datasets](command:kaggle.focusDatasetsView) - Explore datasets\n- [🏆 Competitions](command:kaggle.focusCompetitionsView) - Join competitions",
+        "when": "kaggle.isSignedIn"
+      },
       {
         "view": "kaggleRunsView",
         "contents": "To get started, sign in to Kaggle. [Sign In](command:kaggle.signIn)",
