@@ -2,15 +2,12 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as yaml from 'js-yaml';
-import { execFile } from 'child_process';
-import { getKaggleCreds } from '../kaggleCli';
 
 interface RunItem {
   label: string;
   url?: string;
   status?: 'complete' | 'running' | 'queued' | 'pending' | 'unknown';
   isLatest?: boolean;
-  kernelId?: string;
 }
 
 export class RunsProvider implements vscode.TreeDataProvider<RunItem> {
@@ -95,14 +92,13 @@ export class RunsProvider implements vscode.TreeDataProvider<RunItem> {
         const lines = txt.trim().split(/\r?\n/).slice(-50);
         const items: RunItem[] = lines.map(l => {
           const [ts, url] = l.split(/\s+\|\s+/);
-          const kernelId = extractKernelId(url);
-          return { label: ts, url, kernelId };
+          return { label: ts, url };
         });
 
         if (items.length > 0) {
           const latest = items[items.length - 1];
           latest.isLatest = true;
-          latest.status = await this.getKernelStatus(latest.kernelId);
+          latest.status = await this.detectRunStatus(root, latest.label);
         }
 
         resolve(items);
@@ -112,86 +108,71 @@ export class RunsProvider implements vscode.TreeDataProvider<RunItem> {
     });
   }
 
-  private async getKernelStatus(kernelId?: string): Promise<RunItem['status']> {
-    if (!kernelId) {
-      return 'unknown';
-    }
+  private async detectRunStatus(root: string, runTime: string): Promise<RunItem['status']> {
+    const runTimestamp = new Date(runTime).getTime();
+    const now = Date.now();
+    const timeDiffMinutes = (now - runTimestamp) / (1000 * 60);
 
     try {
-      const config = vscode.workspace.getConfiguration('kaggle');
-      const cliPath = config.get<string>('cliPath', 'kaggle');
+      const ymlPath = path.join(root, 'kaggle.yml');
+      const ymlRaw = await fs.promises.readFile(ymlPath, 'utf8').catch(() => '');
+      const yml = (ymlRaw ? (yaml.load(ymlRaw) as Record<string, unknown>) : {}) || {};
+      const outDir = path.join(
+        root,
+        ((yml.outputs as Record<string, unknown>)?.download_to as string) || '.kaggle-outputs'
+      );
 
-      let env = { ...process.env };
-      try {
-        const creds = await getKaggleCreds(this.context);
-        env = { ...env, KAGGLE_USERNAME: creds.username, KAGGLE_KEY: creds.key };
-      } catch {
-        // 没有凭证，尝试使用已配置的凭证
+      const hasOutputs = await hasRecentOutputs(outDir, runTimestamp);
+
+      if (hasOutputs) {
+        return 'complete';
       }
 
-      const result = await new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
-        execFile(cliPath, ['kernels', 'status', kernelId], { env }, (error, stdout, stderr) => {
-          if (error && !stdout) reject(error);
-          resolve({ stdout, stderr });
-        });
-      });
-
-      const output = result.stdout.toLowerCase();
-      if (output.includes('complete') || output.includes('finished')) {
-        return 'complete';
-      } else if (output.includes('running') || output.includes('processing')) {
+      if (timeDiffMinutes < 2) {
         return 'running';
-      } else if (output.includes('queued') || output.includes('waiting')) {
+      } else if (timeDiffMinutes < 10) {
         return 'queued';
-      } else if (output.includes('error') || output.includes('failed')) {
-        return 'unknown';
+      } else {
+        return 'pending';
       }
     } catch {
-      // 无法查询状态，尝试基于输出目录判断
-    }
-
-    // 回退：检查输出目录
-    const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-    if (root) {
-      try {
-        const ymlPath = path.join(root, 'kaggle.yml');
-        const ymlRaw = await fs.promises.readFile(ymlPath, 'utf8').catch(() => '');
-        const yml = (ymlRaw ? (yaml.load(ymlRaw) as Record<string, unknown>) : {}) || {};
-        const outDir = path.join(
-          root,
-          ((yml.outputs as Record<string, unknown>)?.download_to as string) || '.kaggle-outputs'
-        );
-        const has = await hasAnyRecentFile(outDir, 0);
-        if (has) return 'complete';
-      } catch {
-        /* ignore */
+      if (timeDiffMinutes < 2) {
+        return 'running';
       }
+      return 'pending';
     }
-
-    return 'pending';
   }
 }
 
-function extractKernelId(url?: string): string | undefined {
-  if (!url) return undefined;
-  const match = url.match(/kaggle\.com\/(?:kernels\/)?([^/]+\/[^/]+)/);
-  return match ? match[1] : undefined;
-}
-
-async function hasAnyRecentFile(dir: string, sinceMs: number): Promise<boolean> {
+async function hasRecentOutputs(dir: string, sinceMs: number): Promise<boolean> {
   try {
+    if (!(await exists(dir))) return false;
+
     const entries = await fs.promises.readdir(dir, { withFileTypes: true });
+
     for (const e of entries) {
       const p = path.join(dir, e.name);
+
+      if (e.name === '.gitkeep' || e.name.startsWith('.')) continue;
+
       if (e.isDirectory()) {
-        if (await hasAnyRecentFile(p, sinceMs)) return true;
+        if (await hasRecentOutputs(p, sinceMs)) return true;
       } else if (e.isFile()) {
         const st = await fs.promises.stat(p);
-        if (st.mtimeMs >= sinceMs) return true;
+        if (st.mtimeMs >= sinceMs && st.size > 0) return true;
       }
     }
   } catch {
-    /* missing dir: treat as no files */
+    /* ignore */
   }
   return false;
+}
+
+async function exists(path: string): Promise<boolean> {
+  try {
+    await fs.promises.access(path);
+    return true;
+  } catch {
+    return false;
+  }
 }
