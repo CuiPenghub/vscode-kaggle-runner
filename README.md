@@ -1,218 +1,218 @@
 # Kaggle Runner VSCode Extension
 
-在 VSCode 中直接运行 Jupyter notebooks 和 Python 脚本到 Kaggle 云端。
+Run Jupyter notebooks and Python scripts directly on Kaggle cloud from VSCode.
 
-[📦 安装扩展](https://marketplace.visualstudio.com/)
-[🚀 快速开始](#-快速开始)
-[📖 完整文档](#-功能特性)
-
----
-
-## ✨ 新版本特性
-
-| 特性                  | 描述                                           |
-| --------------------- | ---------------------------------------------- |
-| 🖥️ **状态栏实时显示** | 推送后状态栏实时显示：等待队列 → 运行中 → 完成 |
-| 🔄 **智能轮询机制**   | 后台自动检查运行状态，超时后继续监控           |
-| 🏠 **全新 Home 视图** | 侧边栏快速入口，所有功能一触即达               |
-| 🔐 **凭证自动保存**   | 登录一次，凭证自动保存，下次无需重复输入       |
-| 🐛 **全面 Bug 修复**  | Windows 兼容、内核元数据、状态检测等           |
+[📦 Install Extension](https://marketplace.visualstudio.com/)
+[🚀 Quick Start](#-quick-start)
+[📖 Features](#-features)
 
 ---
 
-## 🚀 快速开始
+## ✨ What's New
 
-### 1. 安装扩展
-
-从 [VSCode Marketplace](https://marketplace.visualstudio.com/) 搜索 "Kaggle Runner" 安装
-
-### 2. 登录 Kaggle
-
-- 打开 VSCode
-- 按 `Ctrl+Shift+P` → 输入 `Kaggle: Sign In`
-- 输入 Kaggle Username 和 API Key
-
-### 3. 初始化项目 (可选)
-
-- 点击侧边栏 Kaggle 图标
-- 点击 Home 视图中的 **📦 Init Project**
-- 或使用命令: `Kaggle: Init Project`
-
-### 4. 运行 Notebook
-
-- 打开 `.ipynb` 文件
-- 点击右上角 🚀 火箭图标
-- 观察状态栏查看进度
+| Feature                     | Description                                              |
+| --------------------------- | -------------------------------------------------------- |
+| 🖥️ **Real-time Status Bar** | Live status: Queued → Running → Completed                |
+| 🔄 **Smart Polling**        | Auto-check run status, continue monitoring after timeout |
+| 🏠 **New Home View**        | Sidebar quick access to all features                     |
+| 🔐 **Credential Auto-save** | Login once, credentials saved automatically              |
+| 🐛 **Bug Fixes**            | Windows compatibility, kernel metadata, status detection |
 
 ---
 
-## 🎯 功能特性
+## 🚀 Quick Start
 
-### 核心功能 ☁️
+### 1. Install Extension
 
-| 功能            | 描述                                    |
-| --------------- | --------------------------------------- |
-| ☁️ 云端运行     | 一键推送 notebook/script 到 Kaggle 执行 |
-| ⚡ GPU/TPU 加速 | 配置硬件加速器                          |
-| 📊 实时状态     | 状态栏显示运行进度                      |
-| 📥 自动下载     | 运行完成后自动下载输出文件              |
-| 🔐 凭证管理     | 安全存储 Kaggle API 密钥                |
+Search "Kaggle Runner" in [VSCode Marketplace](https://marketplace.visualstudio.com/) and install
 
-### 智能优化 🚀
+### 2. Sign In to Kaggle
 
-| 功能              | 描述                             |
-| ----------------- | -------------------------------- |
-| 🖥️ 状态栏实时显示 | 状态栏实时反馈运行状态           |
-| 🔄 智能后台轮询   | 自动检查运行状态，超时后继续监控 |
-| 🏠 Home 视图      | 侧边栏快速入口                   |
-| 🔐 自动凭证保存   | 登录一次，后续自动使用           |
+- Open VSCode
+- Press `Ctrl+Shift+P` → Type `Kaggle: Sign In`
+- Enter your Kaggle Username and API Key
 
-### 效率工具 🛠️
+### 3. Initialize Project (Optional)
 
-| 功能          | 描述                     |
-| ------------- | ------------------------ |
-| 📦 项目初始化 | 快速创建 Kaggle 项目结构 |
-| 📓 笔记本管理 | 浏览和拉取 notebooks     |
-| 📊 数据集浏览 | 探索 Kaggle 数据集       |
-| 🏆 竞赛列表   | 查看可用竞赛             |
-| 📋 运行历史   | 查看历史运行记录         |
+- Click the Kaggle icon in the sidebar
+- Click **📦 Init Project** in Home view
+- Or use command: `Kaggle: Init Project`
+
+### 4. Run Notebook
+
+- Open `.ipynb` file
+- Click the 🚀 rocket icon in the top-right
+- Watch the status bar for progress
 
 ---
 
-## 🔧 配置说明
+## 🎯 Features
 
-### VSCode 设置
+### Core Functions ☁️
 
-在设置中搜索 "Kaggle"：
+| Function                 | Description                                 |
+| ------------------------ | ------------------------------------------- |
+| ☁️ Cloud Run             | One-click push notebook/script to Kaggle    |
+| ⚡ GPU/TPU               | Configure hardware accelerator              |
+| 📊 Real-time Status      | Status bar shows run progress               |
+| 📥 Auto Download         | Auto-download output files after completion |
+| 🔐 Credential Management | Securely store Kaggle API keys              |
 
-| 设置                            | 默认值            | 说明            |
-| ------------------------------- | ----------------- | --------------- |
-| `kaggle.defaultAccelerator`     | `none`            | 默认加速器      |
-| `kaggle.defaultInternet`        | `false`           | 默认启用互联网  |
-| `kaggle.outputsFolder`          | `.kaggle-outputs` | 输出目录        |
-| `kaggle.autoDownloadOnComplete` | `true`            | 自动下载输出    |
-| `kaggle.pollIntervalSeconds`    | `10`              | 轮询间隔(秒)    |
-| `kaggle.pollTimeoutSeconds`     | `600`             | 超时时间(秒)    |
-| `kaggle.cliPath`                | `kaggle`          | Kaggle CLI 路径 |
+### Smart Optimizations 🚀
 
-### 命令列表
+| Function                    | Description                               |
+| --------------------------- | ----------------------------------------- |
+| 🖥️ Real-time Status Bar     | Live feedback on run status               |
+| 🔄 Smart Background Polling | Auto-check status, continue after timeout |
+| 🏠 Home View                | Quick sidebar access                      |
+| 🔐 Auto Credential Save     | Login once, auto-use thereafter           |
 
-| 命令                        | 描述              |
-| --------------------------- | ----------------- |
-| `kaggle.signIn`             | 登录 Kaggle       |
-| `kaggle.signOut`            | 退出登录          |
-| `kaggle.initProject`        | 初始化项目        |
-| `kaggle.runCurrentNotebook` | 运行当前 notebook |
-| `kaggle.pushRun`            | 推送并运行        |
-| `kaggle.downloadOutputs`    | 下载输出文件      |
+### Productivity Tools 🛠️
+
+| Function               | Description                             |
+| ---------------------- | --------------------------------------- |
+| 📦 Project Init        | Quickly create Kaggle project structure |
+| 📓 Notebook Management | Browse and pull notebooks               |
+| 📊 Dataset Browsing    | Explore Kaggle datasets                 |
+| 🏆 Competition List    | View available competitions             |
+| 📋 Run History         | View historical runs                    |
 
 ---
 
-## 📊 从原生到优化
+## 🔧 Configuration
 
-### 原生问题 vs 我们的优化
+### VSCode Settings
 
-| 问题                                   | 优化方案                            |
-| -------------------------------------- | ----------------------------------- |
-| ❌ Windows 命令行参数解析失败          | `exec()` → `execFile()`，跨平台兼容 |
-| ❌ Notebook 缺少 kernel 元数据运行失败 | 自动检测并添加 kernelspec 元数据    |
-| ❌ Runs 状态不更新                     | 基于时间和输出文件的智能状态检测    |
-| ❌ 轮询无状态反馈                      | 状态栏实时显示 + 进度通知           |
-| ❌ 重复输入 username                   | 自动从已保存凭证读取并填充          |
-| ❌ 超时后停止监控                      | 超时后继续每30秒后台检查            |
-| ❌ 凭证无法跨会话保存                  | 使用 VSCode Secrets API 持久化存储  |
+Search "Kaggle" in settings:
 
-### 核心流程优化
+| Setting                         | Default           | Description                |
+| ------------------------------- | ----------------- | -------------------------- |
+| `kaggle.defaultAccelerator`     | `none`            | Default accelerator        |
+| `kaggle.defaultInternet`        | `false`           | Enable internet by default |
+| `kaggle.outputsFolder`          | `.kaggle-outputs` | Output directory           |
+| `kaggle.autoDownloadOnComplete` | `true`            | Auto-download outputs      |
+| `kaggle.pollIntervalSeconds`    | `10`              | Polling interval (seconds) |
+| `kaggle.pollTimeoutSeconds`     | `600`             | Timeout (seconds)          |
+| `kaggle.cliPath`                | `kaggle`          | Kaggle CLI path            |
+
+### Command List
+
+| Command                     | Description           |
+| --------------------------- | --------------------- |
+| `kaggle.signIn`             | Sign in to Kaggle     |
+| `kaggle.signOut`            | Sign out              |
+| `kaggle.initProject`        | Initialize project    |
+| `kaggle.runCurrentNotebook` | Run current notebook  |
+| `kaggle.pushRun`            | Push and run          |
+| `kaggle.downloadOutputs`    | Download output files |
+
+---
+
+## 📊 From Original to Optimized
+
+### Original Problems vs Our Solutions
+
+| Problem                                | Solution                                      |
+| -------------------------------------- | --------------------------------------------- |
+| ❌ Windows command args parsing failed | `exec()` → `execFile()`, cross-platform       |
+| ❌ Notebook missing kernel metadata    | Auto-detect and add kernelspec                |
+| ❌ Runs status not updating            | Smart status detection based on time & output |
+| ❌ Polling without status feedback     | Real-time status bar + notifications          |
+| ❌ Repeated username input             | Auto-read from saved credentials              |
+| ❌ Stop monitoring after timeout       | Continue checking every 30s                   |
+| ❌ Credentials not persisted           | VSCode Secrets API encryption                 |
+
+### Core Workflow Optimization
 
 ```
-原生版本:
-推送 → ❌ 无反馈 → ❌ 状态不更新 → 手动检查
+Original:
+Push → ❌ No feedback → ❌ Status not updating → Manual check
 
-优化版本:
-推送 → 📊 状态栏显示 → 🔄 后台轮询 → ✅ 自动完成通知
+Optimized:
+Push → 📊 Status bar → 🔄 Background polling → ✅ Auto completion notification
 ```
 
 ---
 
-## 🔧 技术架构
+## 🔧 Technical Architecture
 
 ```
 ┌─────────────────────────────────────────────────────┐
 │                    VSCode                                │
 ├─────────────────────────────────────────────────────┤
 │  Kaggle Runner Extension                                │
-│  ├── 🏠 Home 视图 (新增)                               │
-│  ├── 🏃 Runs 视图                                      │
-│  ├── 📓 My Notebooks 视图                              │
-│  ├── 📊 Datasets 视图                                  │
-│  ├── 🏆 Competitions 视图                              │
-│  ├── 🖥️ 状态栏集成 (新增)                              │
-│  └── ⚙️ 智能配置                                       │
+│  ├── 🏠 Home View (NEW)                               │
+│  ├── 🏃 Runs View                                      │
+│  ├── 📓 My Notebooks View                              │
+│  ├── 📊 Datasets View                                  │
+│  ├── 🏆 Competitions View                              │
+│  ├── 🖥️ Status Bar Integration (NEW)                  │
+│  └── ⚙️ Smart Configuration                           │
 ├─────────────────────────────────────────────────────┤
 │                   Kaggle CLI                             │
-│  ├── kernels push    推送运行                          │
-│  ├── kernels status  查询状态 ← 智能轮询               │
-│  ├── kernels output  下载输出                          │
-│  ├── datasets list   数据集列表                        │
-│  ├── competitions   竞赛列表                            │
-│  └── notebooks list  笔记本列表                          │
+│  ├── kernels push    Push & run                        │
+│  ├── kernels status  Query status ← Smart polling     │
+│  ├── kernels output  Download output                   │
+│  ├── datasets list   Dataset list                      │
+│  ├── competitions   Competition list                   │
+│  └── notebooks list  Notebook list                     │
 ├─────────────────────────────────────────────────────┤
 │                  Kaggle API                              │
 │               https://www.kaggle.com/api               │
 └─────────────────────────────────────────────────────┘
 ```
 
-### 核心工作流
+### Core Workflow
 
 ```
-用户操作           系统响应
-─────────────────────────────────────
-点击运行     →    状态栏: 📤 推送中
-              →    通知: 正在上传
-              →    状态栏: 🕐 等待队列
-              →    后台轮询
-              →    状态栏: 🔄 运行中
-              →    完成通知
-              →    自动下载输出
+User Action           System Response
+────────────────────────────────────
+Click Run        →    Status bar: 📤 Pushing
+               →    Notification: Uploading
+               →    Status bar: 🕐 Queued
+               →    Background polling
+               →    Status bar: 🔄 Running
+               →    Completion notification
+               →    Auto-download outputs
 ```
 
 ---
 
-## ❓ 常见问题
+## ❓ FAQ
 
-### Q: 如何获取 Kaggle API Key?
+### Q: How to get Kaggle API Key?
 
-1. 登录 [Kaggle.com](https://www.kaggle.com)
-2. 点击头像 → Settings → API
-3. 点击 "Create New Token"
+1. Sign in to [Kaggle.com](https://www.kaggle.com)
+2. Click avatar → Settings → API
+3. Click "Create New Token"
 
-### Q: 凭证存储安全吗?
+### Q: Is credential storage secure?
 
-是的，使用 VSCode Secrets API 加密存储，仅本地访问。
+Yes, using VSCode Secrets API encryption, local-only access.
 
-### Q: 支持 Windows 吗?
+### Q: Does it support Windows?
 
-是的，完全支持 Windows/macOS/Linux。
+Yes, full support for Windows/macOS/Linux.
 
-### Q: 可以运行 Python 脚本吗?
+### Q: Can I run Python scripts?
 
-是的，支持 `.ipynb` 和 `.py` 文件。
+Yes, supports both `.ipynb` and `.py` files.
 
-### Q: 状态栏不更新怎么办?
+### Q: Status bar not updating?
 
-请确保：
+Make sure:
 
-1. 已正确登录 Kaggle
-2. 网络连接正常
-3. Kaggle CLI 已安装 (`kaggle --version`)
+1. Signed in to Kaggle correctly
+2. Network connection normal
+3. Kaggle CLI installed (`kaggle --version`)
 
 ---
 
-## 🤝 贡献指南
+## 🤝 Contributing
 
-欢迎贡献代码！
+Welcome contributions!
 
-### 开发环境
+### Development
 
 ```bash
 git clone https://github.com/CuiPenghub/vscode-kaggle-runner.git
@@ -221,60 +221,60 @@ npm install
 npm run watch
 ```
 
-### 测试
+### Testing
 
 ```bash
 npm test
 ```
 
-### 构建
+### Build
 
 ```bash
 npm run build
 ```
 
-### 发布
+### Release
 
 ```bash
 npm run release
 ```
 
-### 提交 PR 前
+### Before PR
 
-- [ ] 通过所有测试
-- [ ] 通过 ESLint 检查
-- [ ] 更新文档
+- [ ] All tests pass
+- [ ] ESLint checks pass
+- [ ] Documentation updated
 
 ---
 
-## 📧 联系方式
+## 📧 Contact
 
-**作者**: Peng Cui
+**Author**: Peng Cui
 
-**邮箱**: 1466246366@qq.com
+**Email**: 1466246366@qq.com
 
 **GitHub**: [@CuiPenghub](https://github.com/CuiPenghub)
 
-**问题反馈**: [GitHub Issues](https://github.com/CuiPenghub/vscode-kaggle-runner/issues)
+**Issues**: [GitHub Issues](https://github.com/CuiPenghub/vscode-kaggle-runner/issues)
 
 ---
 
-### 致谢
+## 🙏 Acknowledgments
 
-本项目基于 [DataQuanta/vscode-kaggle-extension](https://github.com/data-quanta/vscode-kaggle-extension) 开源项目开发。
+This project is based on [DataQuanta/vscode-kaggle-extension](https://github.com/data-quanta/vscode-kaggle-extension).
 
-感谢原作者 Amin Vakhshouri 的贡献，本项目在此基础上进行了深度优化和增强, 并修改了存在的bug。
-
----
-
-**喜欢这个扩展吗?**
-
-⭐ 在 [GitHub](https://github.com/CuiPenghub/vscode-kaggle-runner) 点个星
-
-⭐ 在 [VSCode Marketplace](https://marketplace.visualstudio.com/) 给个好评
+Thanks to original author Amin Vakhshouri for the contribution. This project builds upon it with deep optimizations and bug fixes.
 
 ---
 
-## 📄 许可证
+**Like this extension?**
 
-MIT License - 见 [LICENSE](LICENSE) 文件
+⭐ Star us on [GitHub](https://github.com/CuiPenghub/vscode-kaggle-runner)
+
+⭐ Rate us on [VSCode Marketplace](https://marketplace.visualstudio.com/)
+
+---
+
+## 📄 License
+
+MIT License - See [LICENSE](LICENSE) file

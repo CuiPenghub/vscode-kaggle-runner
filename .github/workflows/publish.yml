@@ -40,6 +40,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ github.event.release.upload_url }}
-          asset_path: ./vscode-kaggle-run-${{ github.event.release.tag_name.substr(1) }}.vsix
-          asset_name: vscode-kaggle-run-${{ github.event.release.tag_name.substr(1) }}.vsix
+          asset_path: ./kaggle-runner-${{ github.event.release.tag_name.substr(1) }}.vsix
+          asset_name: kaggle-runner-${{ github.event.release.tag_name.substr(1) }}.vsix
           asset_content_type: application/zip
