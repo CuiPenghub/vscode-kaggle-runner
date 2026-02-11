@@ -328,6 +328,11 @@
       ],
       "view/title": [
         {
+          "command": "kaggle.initProject",
+          "when": "view == kaggleRunsView",
+          "group": "navigation@1"
+        },
+        {
           "command": "kaggle.refreshMyNotebooks",
           "when": "view == kaggleMyNotebooksView",
           "group": "navigation@1"
