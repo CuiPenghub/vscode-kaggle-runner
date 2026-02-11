@@ -1358,7 +1358,7 @@ async function pollAndDownload(
   const dest = path.join(root, yml.outputs?.download_to || '.kaggle-outputs');
   await ensureFolder(dest);
   const start = Date.now();
-  const totalTimeout = timeoutSeconds * 1000;
+  const totalTimeout = Math.min(timeoutSeconds, 60) * 1000;
   const waitInterval = Math.max(intervalSeconds * 1000, 5000);
 
   updateRunStatus('queued', 'Pushed! Waiting in queue...');
@@ -1411,7 +1411,36 @@ async function pollAndDownload(
     await new Promise(r => setTimeout(r, waitInterval));
   }
 
-  updateRunStatus('idle', 'Timed out');
-  onStatus?.('Timed out', 0);
-  vscode.window.showWarningMessage('Timed out waiting for Kaggle run. Check status manually.');
+  // 超时后继续在后台检查，降低频率
+  updateRunStatus('running', 'Run may still be in progress... (checking every 30s)');
+  onStatus?.('Still checking...', 0);
+
+  while (true) {
+    try {
+      const statusRes = await runKaggleCLI(context, ['kernels', 'status', kernelId], root);
+      const statusOutput = statusRes.stdout.toLowerCase();
+
+      if (statusOutput.includes('complete') || statusOutput.includes('finished')) {
+        updateRunStatus('running', 'Downloading outputs...');
+        onStatus?.('Run complete! Downloading outputs...', 95);
+        await runKaggleCLI(context, ['kernels', 'output', kernelId, '-p', dest], root);
+        const items = await fs.promises.readdir(dest);
+        if (items.length > 0) {
+          updateRunStatus('complete', 'Completed! Outputs downloaded.');
+          onStatus?.('Complete!', 100);
+          vscode.window.showInformationMessage(
+            `Kaggle run completed. Outputs downloaded to ${dest}`
+          );
+          runsProvider.refresh();
+          return;
+        }
+      } else {
+        updateRunStatus('running', 'Run may still be in progress... (checking every 30s)');
+      }
+    } catch {
+      updateRunStatus('running', 'Run may still be in progress... (checking every 30s)');
+    }
+
+    await new Promise(r => setTimeout(r, 30000));
+  }
 }
