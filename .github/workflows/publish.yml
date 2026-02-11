@@ -31,7 +31,7 @@ jobs:
 
       - name: Publish to VS Code Marketplace
         if: github.event_name == 'release'
-        run: npx @vscode/vsce publish --pat ${{ secrets.VSCE_TOKEN }}
+        run: npx @vscode/vsce publish --pat "$VSCE_TOKEN"
         env:
           VSCE_TOKEN: ${{ secrets.VSCE_TOKEN }}
 
