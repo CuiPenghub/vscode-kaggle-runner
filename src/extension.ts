@@ -1134,8 +1134,12 @@ async function pollAndDownload(
   await ensureFolder(dest);
   const start = Date.now();
   const totalTimeout = timeoutSeconds * 1000;
+  const waitInterval = Math.max(intervalSeconds * 1000, 5000);
 
-  onStatus?.('Waiting for Kaggle run to complete...', 0);
+  onStatus?.('Pushed to Kaggle. Waiting for run to start...', 5);
+
+  // 首次等待：让远端有时间启动
+  await new Promise(r => setTimeout(r, waitInterval));
 
   while (Date.now() - start < totalTimeout) {
     const elapsed = Date.now() - start;
@@ -1143,24 +1147,44 @@ async function pollAndDownload(
     const remaining = Math.ceil((totalTimeout - elapsed) / 1000);
 
     try {
-      await runKaggleCLI(context, ['kernels', 'output', kernelId, '-p', dest], root);
-      const items = await fs.promises.readdir(dest);
-      if (items.length > 0) {
-        onStatus?.('Complete!', 100);
-        vscode.window.showInformationMessage(`Kaggle run completed. Outputs downloaded to ${dest}`);
-        runsProvider.refresh();
-        return;
+      // 先检查运行状态
+      const statusRes = await runKaggleCLI(context, ['kernels', 'status', kernelId], root);
+      const statusOutput = statusRes.stdout.toLowerCase();
+
+      let currentStatus = 'unknown';
+      if (statusOutput.includes('complete') || statusOutput.includes('finished')) {
+        currentStatus = 'complete';
+      } else if (statusOutput.includes('running') || statusOutput.includes('processing')) {
+        currentStatus = 'running';
+      } else if (statusOutput.includes('queued') || statusOutput.includes('waiting')) {
+        currentStatus = 'queued';
+      }
+
+      onStatus?.(`Status: ${currentStatus}... (${remaining}s remaining)`, progress);
+
+      if (currentStatus === 'complete') {
+        // 状态完成后，下载输出
+        onStatus?.('Run complete! Downloading outputs...', 95);
+        await runKaggleCLI(context, ['kernels', 'output', kernelId, '-p', dest], root);
+        const items = await fs.promises.readdir(dest);
+        if (items.length > 0) {
+          onStatus?.('Complete!', 100);
+          vscode.window.showInformationMessage(
+            `Kaggle run completed. Outputs downloaded to ${dest}`
+          );
+          runsProvider.refresh();
+          return;
+        }
       }
     } catch {
-      // Not ready yet; ignore
+      // 状态检查失败，继续等待
     }
 
-    onStatus?.(`Waiting for outputs... (${remaining}s remaining)`, progress);
-    await new Promise(r => setTimeout(r, Math.max(1000, intervalSeconds * 1000)));
+    await new Promise(r => setTimeout(r, waitInterval));
   }
 
   onStatus?.('Timed out', 0);
   vscode.window.showWarningMessage(
-    'Timed out waiting for Kaggle run to complete. You can download outputs later via "Kaggle: Download Outputs".'
+    'Timed out waiting for Kaggle run. You can check status and download outputs later.'
   );
 }

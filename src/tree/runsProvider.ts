@@ -2,20 +2,24 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as yaml from 'js-yaml';
+import { exec } from 'child_process';
 
 interface RunItem {
   label: string;
   url?: string;
-  status?: 'complete' | 'pending';
+  status?: 'complete' | 'running' | 'queued' | 'pending' | 'unknown';
   isLatest?: boolean;
+  kernelId?: string;
 }
 
 export class RunsProvider implements vscode.TreeDataProvider<RunItem> {
   private _onDidChangeTreeData = new vscode.EventEmitter<void>();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
   private refreshInterval: ReturnType<typeof setInterval> | undefined;
+  private context: vscode.ExtensionContext;
 
-  constructor(private context: vscode.ExtensionContext) {
+  constructor(context: vscode.ExtensionContext) {
+    this.context = context;
     this.startAutoRefresh();
   }
 
@@ -53,14 +57,28 @@ export class RunsProvider implements vscode.TreeDataProvider<RunItem> {
       item.tooltip = element.url;
     }
     if (element.isLatest) {
-      if (element.status === 'complete') {
-        item.iconPath = new vscode.ThemeIcon('check', new vscode.ThemeColor('charts.green'));
-        item.description = 'outputs ready';
-        item.tooltip = (item.tooltip ? item.tooltip + ' • ' : '') + 'Outputs downloaded';
-      } else if (element.status === 'pending') {
-        item.iconPath = new vscode.ThemeIcon('clock', new vscode.ThemeColor('charts.yellow'));
-        item.description = 'waiting';
-        item.tooltip = (item.tooltip ? item.tooltip + ' • ' : '') + 'Waiting for outputs';
+      switch (element.status) {
+        case 'complete':
+          item.iconPath = new vscode.ThemeIcon('check', new vscode.ThemeColor('charts.green'));
+          item.description = 'outputs ready';
+          item.tooltip = (item.tooltip ? item.tooltip + ' • ' : '') + 'Run completed';
+          break;
+        case 'running':
+          item.iconPath = new vscode.ThemeIcon('sync~spin', new vscode.ThemeColor('charts.blue'));
+          item.description = 'running';
+          item.tooltip = (item.tooltip ? item.tooltip + ' • ' : '') + 'Run in progress';
+          break;
+        case 'queued':
+          item.iconPath = new vscode.ThemeIcon('clock', new vscode.ThemeColor('charts.yellow'));
+          item.description = 'queued';
+          item.tooltip = (item.tooltip ? item.tooltip + ' • ' : '') + 'Waiting in queue';
+          break;
+        case 'pending':
+        default:
+          item.iconPath = new vscode.ThemeIcon('clock', new vscode.ThemeColor('charts.yellow'));
+          item.description = 'waiting';
+          item.tooltip = (item.tooltip ? item.tooltip + ' • ' : '') + 'Waiting for outputs';
+          break;
       }
     }
     return item;
@@ -74,28 +92,16 @@ export class RunsProvider implements vscode.TreeDataProvider<RunItem> {
       try {
         const txt = await fs.promises.readFile(logFile, 'utf8');
         const lines = txt.trim().split(/\r?\n/).slice(-50);
-        const items = lines.map(l => {
+        const items: RunItem[] = lines.map(l => {
           const [ts, url] = l.split(/\s+\|\s+/);
-          return { label: ts, url } as RunItem;
+          const kernelId = extractKernelId(url);
+          return { label: ts, url, kernelId };
         });
 
-        // Mark last (most recent) run with a simple status based on outputs presence
         if (items.length > 0) {
           const latest = items[items.length - 1];
           latest.isLatest = true;
-          try {
-            const ymlPath = path.join(root, 'kaggle.yml');
-            const ymlRaw = await fs.promises.readFile(ymlPath, 'utf8').catch(() => '');
-            const yml = (ymlRaw ? (yaml.load(ymlRaw) as Record<string, unknown>) : {}) || {};
-            const outDir = path.join(
-              root,
-              ((yml.outputs as Record<string, unknown>)?.download_to as string) || '.kaggle-outputs'
-            );
-            const has = await hasAnyRecentFile(outDir, new Date(latest.label).getTime());
-            latest.status = has ? 'complete' : 'pending';
-          } catch {
-            /* ignore */
-          }
+          latest.status = await this.getKernelStatus(latest.kernelId);
         }
 
         resolve(items);
@@ -104,6 +110,63 @@ export class RunsProvider implements vscode.TreeDataProvider<RunItem> {
       }
     });
   }
+
+  private async getKernelStatus(kernelId?: string): Promise<RunItem['status']> {
+    if (!kernelId) {
+      return 'unknown';
+    }
+
+    try {
+      const config = vscode.workspace.getConfiguration('kaggle');
+      const cliPath = config.get<string>('cliPath', 'kaggle');
+
+      const result = await new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
+        exec(`${cliPath} kernels status ${kernelId}`, (error, stdout, stderr) => {
+          if (error && !stdout) reject(error);
+          resolve({ stdout, stderr });
+        });
+      });
+
+      const output = result.stdout.toLowerCase();
+      if (output.includes('complete') || output.includes('finished')) {
+        return 'complete';
+      } else if (output.includes('running') || output.includes('processing')) {
+        return 'running';
+      } else if (output.includes('queued') || output.includes('waiting')) {
+        return 'queued';
+      } else if (output.includes('error') || output.includes('failed')) {
+        return 'unknown';
+      }
+    } catch {
+      // 无法查询状态，尝试基于输出目录判断
+    }
+
+    // 回退：检查输出目录
+    const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    if (root) {
+      try {
+        const ymlPath = path.join(root, 'kaggle.yml');
+        const ymlRaw = await fs.promises.readFile(ymlPath, 'utf8').catch(() => '');
+        const yml = (ymlRaw ? (yaml.load(ymlRaw) as Record<string, unknown>) : {}) || {};
+        const outDir = path.join(
+          root,
+          ((yml.outputs as Record<string, unknown>)?.download_to as string) || '.kaggle-outputs'
+        );
+        const has = await hasAnyRecentFile(outDir, 0);
+        if (has) return 'complete';
+      } catch {
+        /* ignore */
+      }
+    }
+
+    return 'pending';
+  }
+}
+
+function extractKernelId(url?: string): string | undefined {
+  if (!url) return undefined;
+  const match = url.match(/kaggle\.com\/(?:kernels\/)?([^/]+\/[^/]+)/);
+  return match ? match[1] : undefined;
 }
 
 async function hasAnyRecentFile(dir: string, sinceMs: number): Promise<boolean> {
