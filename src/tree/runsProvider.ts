@@ -2,7 +2,8 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as yaml from 'js-yaml';
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
+import { getKaggleCreds } from '../kaggleCli';
 
 interface RunItem {
   label: string;
@@ -120,8 +121,16 @@ export class RunsProvider implements vscode.TreeDataProvider<RunItem> {
       const config = vscode.workspace.getConfiguration('kaggle');
       const cliPath = config.get<string>('cliPath', 'kaggle');
 
+      let env = { ...process.env };
+      try {
+        const creds = await getKaggleCreds(this.context);
+        env = { ...env, KAGGLE_USERNAME: creds.username, KAGGLE_KEY: creds.key };
+      } catch {
+        // 没有凭证，尝试使用已配置的凭证
+      }
+
       const result = await new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
-        exec(`${cliPath} kernels status ${kernelId}`, (error, stdout, stderr) => {
+        execFile(cliPath, ['kernels', 'status', kernelId], { env }, (error, stdout, stderr) => {
           if (error && !stdout) reject(error);
           resolve({ stdout, stderr });
         });

@@ -86,6 +86,70 @@ let statusBarItem: vscode.StatusBarItem;
 let isRunning = false;
 let runsProvider: RunsProvider;
 
+type RunStatus = 'idle' | 'pushing' | 'queued' | 'running' | 'complete';
+let currentRunStatus: RunStatus = 'idle';
+let currentRunMessage = '';
+
+function updateRunStatus(status: RunStatus, message?: string) {
+  currentRunStatus = status;
+  currentRunMessage = message || '';
+  updateStatusBarSync();
+}
+
+function updateStatusBarSync() {
+  if (!statusBarItem) return;
+
+  if (isRunning) {
+    statusBarItem.text = `$(loading~spin) Kaggle`;
+    statusBarItem.tooltip = 'Pushing notebook to Kaggle...';
+    statusBarItem.command = 'kaggle.showOutput';
+    statusBarItem.show();
+    return;
+  }
+
+  switch (currentRunStatus) {
+    case 'pushing':
+      statusBarItem.text = `$(cloud-upload) Kaggle`;
+      statusBarItem.tooltip = currentRunMessage || 'Pushing to Kaggle...';
+      statusBarItem.command = 'kaggle.showOutput';
+      statusBarItem.backgroundColor = undefined;
+      break;
+    case 'queued':
+      statusBarItem.text = `$(clock) Kaggle`;
+      statusBarItem.tooltip = currentRunMessage || 'Waiting in queue...';
+      statusBarItem.command = 'kaggle.showOutput';
+      statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
+      break;
+    case 'running':
+      statusBarItem.text = `$(sync~spin) Kaggle`;
+      statusBarItem.tooltip = currentRunMessage || 'Running on Kaggle...';
+      statusBarItem.command = 'kaggle.showOutput';
+      statusBarItem.backgroundColor = undefined;
+      break;
+    case 'complete':
+      statusBarItem.text = `$(check) Kaggle`;
+      statusBarItem.tooltip = currentRunMessage || 'Run completed!';
+      statusBarItem.command = 'kaggle.showDashboard';
+      statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.okBackground');
+      setTimeout(() => {
+        if (currentRunStatus === 'complete') {
+          currentRunStatus = 'idle';
+          currentRunMessage = '';
+          updateStatusBarSync();
+        }
+      }, 5000);
+      break;
+    case 'idle':
+    default:
+      statusBarItem.text = `$(check) Kaggle`;
+      statusBarItem.tooltip = 'Signed in to Kaggle';
+      statusBarItem.command = 'kaggle.showDashboard';
+      statusBarItem.backgroundColor = undefined;
+      break;
+  }
+  statusBarItem.show();
+}
+
 export async function activate(context: vscode.ExtensionContext) {
   console.log('Kaggle extension activated!');
   async function updateAuthContext() {
@@ -154,6 +218,12 @@ export async function activate(context: vscode.ExtensionContext) {
   statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
   context.subscriptions.push(statusBarItem);
 
+  function updateRunStatus(status: RunStatus, message?: string) {
+    currentRunStatus = status;
+    currentRunMessage = message || '';
+    updateStatusBar();
+  }
+
   async function updateStatusBar() {
     if (isRunning) {
       statusBarItem.text = `$(loading~spin) Kaggle`;
@@ -163,37 +233,79 @@ export async function activate(context: vscode.ExtensionContext) {
       return;
     }
 
-    const cliStatus = await checkKaggleCLI();
-    let isSignedIn = false;
-    try {
-      await getKaggleCreds(context);
-      isSignedIn = true;
-    } catch {
-      isSignedIn = false;
-    }
+    switch (currentRunStatus) {
+      case 'pushing':
+        statusBarItem.text = `$(cloud-upload) Kaggle`;
+        statusBarItem.tooltip = currentRunMessage || 'Pushing to Kaggle...';
+        statusBarItem.command = 'kaggle.showOutput';
+        statusBarItem.backgroundColor = undefined;
+        break;
+      case 'queued':
+        statusBarItem.text = `$(clock) Kaggle`;
+        statusBarItem.tooltip = currentRunMessage || 'Waiting in queue...';
+        statusBarItem.command = 'kaggle.showOutput';
+        statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
+        break;
+      case 'running':
+        statusBarItem.text = `$(sync~spin) Kaggle`;
+        statusBarItem.tooltip = currentRunMessage || 'Running on Kaggle...';
+        statusBarItem.command = 'kaggle.showOutput';
+        statusBarItem.backgroundColor = undefined;
+        break;
+      case 'complete':
+        statusBarItem.text = `$(check) Kaggle`;
+        statusBarItem.tooltip = currentRunMessage || 'Run completed!';
+        statusBarItem.command = 'kaggle.showDashboard';
+        statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.okBackground');
+        setTimeout(() => {
+          if (currentRunStatus === 'complete') {
+            currentRunStatus = 'idle';
+            currentRunMessage = '';
+            updateStatusBar();
+          }
+        }, 5000);
+        break;
+      case 'idle':
+      default:
+        const cliStatus = await checkKaggleCLI();
+        let isSignedIn = false;
+        try {
+          await getKaggleCreds(context);
+          isSignedIn = true;
+        } catch {
+          isSignedIn = false;
+        }
 
-    if (!cliStatus.available) {
-      statusBarItem.text = `$(warning) Kaggle`;
-      statusBarItem.tooltip = 'Kaggle CLI not installed. Click to fix.';
-      statusBarItem.command = 'kaggle.checkCliStatus';
-      statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
-    } else if (!isSignedIn) {
-      statusBarItem.text = `$(sign-out) Kaggle`;
-      statusBarItem.tooltip = 'Not signed in to Kaggle. Click to sign in.';
-      statusBarItem.command = 'kaggle.signIn';
-      statusBarItem.backgroundColor = undefined;
-    } else {
-      statusBarItem.text = `$(check) Kaggle`;
-      statusBarItem.tooltip = 'Signed in to Kaggle. Click to open dashboard.';
-      statusBarItem.command = 'kaggle.showDashboard';
-      statusBarItem.backgroundColor = undefined;
+        if (!cliStatus.available) {
+          statusBarItem.text = `$(warning) Kaggle`;
+          statusBarItem.tooltip = 'Kaggle CLI not installed. Click to fix.';
+          statusBarItem.command = 'kaggle.checkCliStatus';
+          statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
+        } else if (!isSignedIn) {
+          statusBarItem.text = `$(sign-out) Kaggle`;
+          statusBarItem.tooltip = 'Not signed in to Kaggle. Click to sign in.';
+          statusBarItem.command = 'kaggle.signIn';
+          statusBarItem.backgroundColor = undefined;
+        } else {
+          statusBarItem.text = `$(check) Kaggle`;
+          statusBarItem.tooltip = 'Signed in to Kaggle. Click to open dashboard.';
+          statusBarItem.command = 'kaggle.showDashboard';
+          statusBarItem.backgroundColor = undefined;
+        }
+        break;
     }
     statusBarItem.show();
   }
 
-  function setRunningState(running: boolean) {
+  function setRunningState(running: boolean, isPush: boolean = false) {
     isRunning = running;
-    updateStatusBar();
+    if (running && isPush) {
+      updateRunStatus('pushing', 'Pushing notebook to Kaggle...');
+    } else if (running) {
+      updateStatusBar();
+    } else {
+      updateStatusBar();
+    }
   }
 
   // Update status bar on activation
@@ -641,7 +753,7 @@ export async function activate(context: vscode.ExtensionContext) {
         OUTPUT.show(true);
         OUTPUT.appendLine(`Pushing ${relCodePath} to Kaggle...`);
 
-        setRunningState(true);
+        setRunningState(true, true);
         try {
           const res = await vscode.window.withProgress(
             {
@@ -668,7 +780,7 @@ export async function activate(context: vscode.ExtensionContext) {
           if (cfg.get<boolean>('autoDownloadOnComplete', true)) {
             const kernelId = (meta.id as string) || yml.kernel_slug;
             if (kernelId) {
-              setRunningState(true);
+              setRunningState(true, true);
               try {
                 await vscode.window.withProgress(
                   {
@@ -743,7 +855,7 @@ export async function activate(context: vscode.ExtensionContext) {
         OUTPUT.show(true);
         OUTPUT.appendLine('Pushing & running on Kaggle...');
 
-        setRunningState(true);
+        setRunningState(true, true);
         try {
           const res = await vscode.window.withProgress(
             {
@@ -771,7 +883,7 @@ export async function activate(context: vscode.ExtensionContext) {
             if (cfg.get<boolean>('autoDownloadOnComplete', true)) {
               const kernelId = (meta.id as string) || yml.kernel_slug;
               if (kernelId) {
-                setRunningState(true);
+                setRunningState(true, true);
                 try {
                   await vscode.window.withProgress(
                     {
@@ -1136,7 +1248,8 @@ async function pollAndDownload(
   const totalTimeout = timeoutSeconds * 1000;
   const waitInterval = Math.max(intervalSeconds * 1000, 5000);
 
-  onStatus?.('Pushed to Kaggle. Waiting for run to start...', 5);
+  updateRunStatus('queued', 'Pushed! Waiting in queue...');
+  onStatus?.('Pushed to Kaggle. Waiting in queue...', 5);
 
   // 首次等待：让远端有时间启动
   await new Promise(r => setTimeout(r, waitInterval));
@@ -1147,11 +1260,10 @@ async function pollAndDownload(
     const remaining = Math.ceil((totalTimeout - elapsed) / 1000);
 
     try {
-      // 先检查运行状态
       const statusRes = await runKaggleCLI(context, ['kernels', 'status', kernelId], root);
       const statusOutput = statusRes.stdout.toLowerCase();
 
-      let currentStatus = 'unknown';
+      let currentStatus: RunStatus = 'idle';
       if (statusOutput.includes('complete') || statusOutput.includes('finished')) {
         currentStatus = 'complete';
       } else if (statusOutput.includes('running') || statusOutput.includes('processing')) {
@@ -1160,14 +1272,17 @@ async function pollAndDownload(
         currentStatus = 'queued';
       }
 
-      onStatus?.(`Status: ${currentStatus}... (${remaining}s remaining)`, progress);
+      const statusMessage = `Status: ${currentStatus}... (${remaining}s remaining)`;
+      updateRunStatus(currentStatus, statusMessage);
+      onStatus?.(statusMessage, progress);
 
       if (currentStatus === 'complete') {
-        // 状态完成后，下载输出
+        updateRunStatus('running', 'Downloading outputs...');
         onStatus?.('Run complete! Downloading outputs...', 95);
         await runKaggleCLI(context, ['kernels', 'output', kernelId, '-p', dest], root);
         const items = await fs.promises.readdir(dest);
         if (items.length > 0) {
+          updateRunStatus('complete', 'Completed! Outputs downloaded.');
           onStatus?.('Complete!', 100);
           vscode.window.showInformationMessage(
             `Kaggle run completed. Outputs downloaded to ${dest}`
@@ -1177,14 +1292,13 @@ async function pollAndDownload(
         }
       }
     } catch {
-      // 状态检查失败，继续等待
+      updateRunStatus('queued', `Waiting... (${remaining}s remaining)`);
     }
 
     await new Promise(r => setTimeout(r, waitInterval));
   }
 
+  updateRunStatus('idle', 'Timed out');
   onStatus?.('Timed out', 0);
-  vscode.window.showWarningMessage(
-    'Timed out waiting for Kaggle run. You can check status and download outputs later.'
-  );
+  vscode.window.showWarningMessage('Timed out waiting for Kaggle run. Check status manually.');
 }
