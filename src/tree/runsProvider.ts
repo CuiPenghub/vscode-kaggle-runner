@@ -6,7 +6,7 @@ import * as yaml from 'js-yaml';
 interface RunItem {
   label: string;
   url?: string;
-  status?: 'complete' | 'running' | 'queued' | 'pending' | 'unknown';
+  status?: 'complete' | 'running' | 'queued' | 'pending';
   isLatest?: boolean;
 }
 
@@ -15,24 +15,26 @@ export class RunsProvider implements vscode.TreeDataProvider<RunItem> {
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
   private refreshInterval: ReturnType<typeof setInterval> | undefined;
   private context: vscode.ExtensionContext;
+  private needsPolling = false;
 
   constructor(context: vscode.ExtensionContext) {
     this.context = context;
-    this.startAutoRefresh();
+    this.startSmartRefresh();
   }
 
   dispose() {
-    this.stopAutoRefresh();
+    this.stopRefresh();
   }
 
-  private startAutoRefresh() {
+  private startSmartRefresh() {
+    if (this.refreshInterval) return;
     this.refreshInterval = setInterval(() => {
       this._onDidChangeTreeData.fire();
     }, 10000);
-    this.context.subscriptions.push({ dispose: () => this.stopAutoRefresh() });
+    this.context.subscriptions.push({ dispose: () => this.stopRefresh() });
   }
 
-  private stopAutoRefresh() {
+  stopRefresh() {
     if (this.refreshInterval) {
       clearInterval(this.refreshInterval);
       this.refreshInterval = undefined;
@@ -60,22 +62,26 @@ export class RunsProvider implements vscode.TreeDataProvider<RunItem> {
           item.iconPath = new vscode.ThemeIcon('check', new vscode.ThemeColor('charts.green'));
           item.description = 'outputs ready';
           item.tooltip = (item.tooltip ? item.tooltip + ' • ' : '') + 'Run completed';
+          this.needsPolling = false;
           break;
         case 'running':
           item.iconPath = new vscode.ThemeIcon('sync~spin', new vscode.ThemeColor('charts.blue'));
           item.description = 'running';
           item.tooltip = (item.tooltip ? item.tooltip + ' • ' : '') + 'Run in progress';
+          this.needsPolling = true;
           break;
         case 'queued':
           item.iconPath = new vscode.ThemeIcon('clock', new vscode.ThemeColor('charts.yellow'));
           item.description = 'queued';
           item.tooltip = (item.tooltip ? item.tooltip + ' • ' : '') + 'Waiting in queue';
+          this.needsPolling = true;
           break;
         case 'pending':
         default:
           item.iconPath = new vscode.ThemeIcon('clock', new vscode.ThemeColor('charts.yellow'));
           item.description = 'waiting';
           item.tooltip = (item.tooltip ? item.tooltip + ' • ' : '') + 'Waiting for outputs';
+          this.needsPolling = false;
           break;
       }
     }
@@ -163,14 +169,14 @@ async function hasRecentOutputs(dir: string, sinceMs: number): Promise<boolean> 
       }
     }
   } catch {
-    /* ignore */
+    // ignore
   }
   return false;
 }
 
-async function exists(path: string): Promise<boolean> {
+async function exists(p: string): Promise<boolean> {
   try {
-    await fs.promises.access(path);
+    await fs.promises.access(p);
     return true;
   } catch {
     return false;

@@ -86,17 +86,12 @@ async function checkAndRestorePolling(context: vscode.ExtensionContext) {
   const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
   if (!root) return;
 
-  const logFile = path.join(root, '.kaggle-run.log');
-  const ymlPath = path.join(root, 'kaggle.yml');
-
   try {
-    const logExists = await fs.promises
-      .access(logFile)
-      .then(() => true)
-      .catch(() => false);
-    if (!logExists) return;
+    const logContent = await fs.promises
+      .readFile(path.join(root, '.kaggle-run.log'), 'utf8')
+      .catch(() => '');
+    if (!logContent) return;
 
-    const logContent = await fs.promises.readFile(logFile, 'utf8');
     const lines = logContent.trim().split(/\r?\n/).slice(-5);
     if (lines.length === 0) return;
 
@@ -105,20 +100,19 @@ async function checkAndRestorePolling(context: vscode.ExtensionContext) {
     if (!ts || !url) return;
 
     const runTime = new Date(ts).getTime();
-    const now = Date.now();
-    const minutesSinceRun = (now - runTime) / (1000 * 60);
-
+    const minutesSinceRun = (Date.now() - runTime) / (1000 * 60);
     if (minutesSinceRun > 30) return;
 
-    const ymlContent = (await fs.promises.readFile(ymlPath, 'utf8').catch(() => '')) || '';
+    const ymlContent = await fs.promises
+      .readFile(path.join(root, 'kaggle.yml'), 'utf8')
+      .catch(() => '');
     const ymlData = (yaml.load(ymlContent) as Record<string, unknown>) || {};
     const outDir = path.join(
       root,
       ((ymlData.outputs as Record<string, unknown>)?.download_to as string) || '.kaggle-outputs'
     );
 
-    const outputsExist = await hasRecentOutputs(outDir, runTime);
-    if (outputsExist) return;
+    if (await hasRecentOutputs(outDir, runTime)) return;
 
     const kernelSlug = (ymlData as { kernel_slug?: string }).kernel_slug;
     if (!kernelSlug) return;
@@ -126,7 +120,7 @@ async function checkAndRestorePolling(context: vscode.ExtensionContext) {
     updateRunStatus('running', 'Previous run may still be in progress...');
 
     const choice = await vscode.window.showInformationMessage(
-      'A recent Kaggle run was detected. Would you like to continue polling for completion and download outputs?',
+      'A recent Kaggle run was detected. Would you like to continue polling for completion?',
       { modal: true },
       'Continue Polling',
       'Skip'
@@ -134,8 +128,6 @@ async function checkAndRestorePolling(context: vscode.ExtensionContext) {
 
     if (choice === 'Continue Polling') {
       const cfg = vscode.workspace.getConfiguration('kaggle');
-      const kernelId = kernelSlug;
-
       updateRunStatus('queued', 'Checking run status...');
 
       try {
@@ -149,13 +141,11 @@ async function checkAndRestorePolling(context: vscode.ExtensionContext) {
             progress.report({ message: 'Checking run status...', increment: 0 });
             await pollAndDownload(
               context,
-              kernelId,
+              kernelSlug,
               root,
               cfg.get<number>('pollIntervalSeconds', 10),
               cfg.get<number>('pollTimeoutSeconds', 600),
-              (status, p) => {
-                progress.report({ message: status, increment: p });
-              }
+              (status, p) => progress.report({ message: status, increment: p })
             );
           }
         );
@@ -173,6 +163,7 @@ async function checkAndRestorePolling(context: vscode.ExtensionContext) {
 
 async function hasRecentOutputs(dir: string, sinceMs: number): Promise<boolean> {
   try {
+    if (!(await exists(dir))) return false;
     const entries = await fs.promises.readdir(dir, { withFileTypes: true });
     for (const e of entries) {
       const p = path.join(dir, e.name);
@@ -188,6 +179,15 @@ async function hasRecentOutputs(dir: string, sinceMs: number): Promise<boolean> 
     // ignore
   }
   return false;
+}
+
+async function exists(p: string): Promise<boolean> {
+  try {
+    await fs.promises.access(p);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 let statusBarItem: vscode.StatusBarItem;
