@@ -82,6 +82,114 @@ async function ensureKernelMetadata(notebookPath: string): Promise<boolean> {
   }
 }
 
+async function checkAndRestorePolling(context: vscode.ExtensionContext) {
+  const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  if (!root) return;
+
+  const logFile = path.join(root, '.kaggle-run.log');
+  const ymlPath = path.join(root, 'kaggle.yml');
+
+  try {
+    const logExists = await fs.promises
+      .access(logFile)
+      .then(() => true)
+      .catch(() => false);
+    if (!logExists) return;
+
+    const logContent = await fs.promises.readFile(logFile, 'utf8');
+    const lines = logContent.trim().split(/\r?\n/).slice(-5);
+    if (lines.length === 0) return;
+
+    const lastLine = lines[lines.length - 1];
+    const [ts, url] = lastLine.split(/\s+\|\s+/);
+    if (!ts || !url) return;
+
+    const runTime = new Date(ts).getTime();
+    const now = Date.now();
+    const minutesSinceRun = (now - runTime) / (1000 * 60);
+
+    if (minutesSinceRun > 30) return;
+
+    const ymlContent = (await fs.promises.readFile(ymlPath, 'utf8').catch(() => '')) || '';
+    const ymlData = (yaml.load(ymlContent) as Record<string, unknown>) || {};
+    const outDir = path.join(
+      root,
+      ((ymlData.outputs as Record<string, unknown>)?.download_to as string) || '.kaggle-outputs'
+    );
+
+    const outputsExist = await hasRecentOutputs(outDir, runTime);
+    if (outputsExist) return;
+
+    const kernelSlug = (ymlData as { kernel_slug?: string }).kernel_slug;
+    if (!kernelSlug) return;
+
+    updateRunStatus('running', 'Previous run may still be in progress...');
+
+    const choice = await vscode.window.showInformationMessage(
+      'A recent Kaggle run was detected. Would you like to continue polling for completion and download outputs?',
+      { modal: true },
+      'Continue Polling',
+      'Skip'
+    );
+
+    if (choice === 'Continue Polling') {
+      const cfg = vscode.workspace.getConfiguration('kaggle');
+      const kernelId = kernelSlug;
+
+      updateRunStatus('queued', 'Checking run status...');
+
+      try {
+        await vscode.window.withProgress(
+          {
+            location: vscode.ProgressLocation.Notification,
+            title: 'Kaggle Run',
+            cancellable: true,
+          },
+          async progress => {
+            progress.report({ message: 'Checking run status...', increment: 0 });
+            await pollAndDownload(
+              context,
+              kernelId,
+              root,
+              cfg.get<number>('pollIntervalSeconds', 10),
+              cfg.get<number>('pollTimeoutSeconds', 600),
+              (status, p) => {
+                progress.report({ message: status, increment: p });
+              }
+            );
+          }
+        );
+      } catch (e) {
+        updateRunStatus('idle', '');
+        showError(e);
+      }
+    } else {
+      updateRunStatus('idle', '');
+    }
+  } catch {
+    // Ignore errors
+  }
+}
+
+async function hasRecentOutputs(dir: string, sinceMs: number): Promise<boolean> {
+  try {
+    const entries = await fs.promises.readdir(dir, { withFileTypes: true });
+    for (const e of entries) {
+      const p = path.join(dir, e.name);
+      if (e.name.startsWith('.')) continue;
+      if (e.isDirectory()) {
+        if (await hasRecentOutputs(p, sinceMs)) return true;
+      } else if (e.isFile()) {
+        const st = await fs.promises.stat(p);
+        if (st.mtimeMs >= sinceMs && st.size > 0) return true;
+      }
+    }
+  } catch {
+    // ignore
+  }
+  return false;
+}
+
 let statusBarItem: vscode.StatusBarItem;
 let isRunning = false;
 let runsProvider: RunsProvider;
@@ -217,6 +325,11 @@ export async function activate(context: vscode.ExtensionContext) {
   // Create status bar item for Kaggle status
   statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
   context.subscriptions.push(statusBarItem);
+
+  // Auto-check and restore polling on activation
+  setTimeout(async () => {
+    await checkAndRestorePolling(context);
+  }, 3000);
 
   function updateRunStatus(status: RunStatus, message?: string) {
     currentRunStatus = status;
