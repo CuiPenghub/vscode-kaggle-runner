@@ -26,12 +26,12 @@ jobs:
 
       - name: Package extension
         run: |
-          npx @vscode/vsce package
+          npx @vscode/vsce package --allow-star-activation
           mv kaggle-runner-*.vsix kaggle-runner-latest.vsix
 
       - name: Publish to VS Code Marketplace
         if: github.event_name == 'release'
-        run: npx @vscode/vsce publish --pat "$VSCE_TOKEN"
+        run: npx @vscode/vsce publish --allow-star-activation --pat "$VSCE_TOKEN"
         env:
           VSCE_TOKEN: ${{ secrets.VSCE_TOKEN }}
 
