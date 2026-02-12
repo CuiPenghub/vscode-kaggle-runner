@@ -2,7 +2,7 @@
   "name": "kaggle-runner",
   "displayName": "Kaggle Runner",
   "description": "Run Jupyter notebooks & Python scripts on Kaggle cloud directly from VSCode. Push code, configure GPU/TPU, fetch outputs with real-time status updates.",
-  "version": "1.1.6",
+  "version": "1.2.0",
   "publisher": "PengCui",
   "author": "Peng Cui",
   "license": "MIT",
@@ -412,7 +412,7 @@
     "viewsWelcome": [
       {
         "view": "kaggleHomeView",
-        "contents": "Kaggle Runner\n\n[📦 Init Project](command:kaggle.initProject)\n\n---\n\nQuick Links:\n\n[🏃 Runs](command:kaggle.focusRunsView) - View your run history\n\n[📓 My Notebooks](command:kaggle.focusMyNotebooksView) - Browse notebooks\n\n[📊 Datasets](command:kaggle.focusDatasetsView) - Explore datasets\n\n[🏆 Competitions](command:kaggle.focusCompetitionsView) - Join competitions",
+        "contents": "Kaggle Runner\n\n[📦 Init Project](command:kaggle.initProject)\n\n---\n\nNavigate:\n\n• 🏃 Runs - View your run history\n\n• 📓 My Notebooks - Browse notebooks\n\n• 📊 Datasets - Explore datasets\n\n• 🏆 Competitions - Join competitions",
         "when": "kaggle.isSignedIn"
       },
       {
