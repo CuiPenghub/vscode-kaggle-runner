@@ -6,7 +6,7 @@ import * as yaml from 'js-yaml';
 interface RunItem {
   label: string;
   url?: string;
-  status?: 'complete' | 'running' | 'queued' | 'pending';
+  status?: 'complete' | 'running' | 'queued' | 'pending' | 'error';
   isLatest?: boolean;
 }
 
@@ -77,10 +77,16 @@ export class RunsProvider implements vscode.TreeDataProvider<RunItem> {
           this.needsPolling = true;
           break;
         case 'pending':
-        default:
           item.iconPath = new vscode.ThemeIcon('clock', new vscode.ThemeColor('charts.yellow'));
           item.description = 'waiting';
           item.tooltip = (item.tooltip ? item.tooltip + ' • ' : '') + 'Waiting for outputs';
+          this.needsPolling = false;
+          break;
+        case 'error':
+          item.iconPath = new vscode.ThemeIcon('error', new vscode.ThemeColor('charts.red'));
+          item.description = 'error';
+          item.tooltip =
+            (item.tooltip ? item.tooltip + ' • ' : '') + 'Run failed - Check RUN_ERROR.log';
           this.needsPolling = false;
           break;
       }
@@ -122,11 +128,19 @@ export class RunsProvider implements vscode.TreeDataProvider<RunItem> {
     try {
       const ymlPath = path.join(root, 'kaggle.yml');
       const ymlRaw = await fs.promises.readFile(ymlPath, 'utf8').catch(() => '');
-      const yml = (ymlRaw ? (yaml.load(ymlRaw) as Record<string, unknown>) : {}) || {};
+      const yml = (ymlRaw ? (yaml.load(ymlPath) as Record<string, unknown>) : {}) || {};
       const outDir = path.join(
         root,
         ((yml.outputs as Record<string, unknown>)?.download_to as string) || '.kaggle-outputs'
       );
+
+      const errorLogPath = path.join(root, 'RUN_ERROR.log');
+      if (await exists(errorLogPath)) {
+        const errorStat = await fs.promises.stat(errorLogPath);
+        if (errorStat.mtimeMs >= runTimestamp) {
+          return 'error';
+        }
+      }
 
       const hasOutputs = await hasRecentOutputs(outDir, runTimestamp);
 

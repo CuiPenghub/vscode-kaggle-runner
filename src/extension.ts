@@ -194,7 +194,7 @@ let statusBarItem: vscode.StatusBarItem;
 let isRunning = false;
 let runsProvider: RunsProvider;
 
-type RunStatus = 'idle' | 'pushing' | 'queued' | 'running' | 'complete';
+type RunStatus = 'idle' | 'pushing' | 'queued' | 'running' | 'complete' | 'error';
 let currentRunStatus: RunStatus = 'idle';
 let currentRunMessage = '';
 
@@ -246,6 +246,19 @@ function updateStatusBarSync() {
           updateStatusBarSync();
         }
       }, 5000);
+      break;
+    case 'error':
+      statusBarItem.text = `$(error) Kaggle`;
+      statusBarItem.tooltip = currentRunMessage || 'Run failed!';
+      statusBarItem.command = 'kaggle.showOutput';
+      statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.errorBackground');
+      setTimeout(() => {
+        if (currentRunStatus === 'error') {
+          currentRunStatus = 'idle';
+          currentRunMessage = '';
+          updateStatusBarSync();
+        }
+      }, 10000);
       break;
     case 'idle':
     default:
@@ -1387,6 +1400,12 @@ async function pollAndDownload(
         currentStatus = 'running';
       } else if (statusOutput.includes('queued') || statusOutput.includes('waiting')) {
         currentStatus = 'queued';
+      } else if (
+        statusOutput.includes('error') ||
+        statusOutput.includes('failed') ||
+        statusOutput.includes('exception')
+      ) {
+        currentStatus = 'error';
       }
 
       const statusMessage = `Status: ${currentStatus}... (${remaining}s remaining)`;
@@ -1407,6 +1426,32 @@ async function pollAndDownload(
           runsProvider.refresh();
           return;
         }
+      } else if (currentStatus === 'error') {
+        updateRunStatus('error', 'Run failed!');
+        onStatus?.('Run failed!', 0);
+        try {
+          const errorLogPath = path.join(root, 'RUN_ERROR.log');
+          const kaggleUrl = `https://www.kaggle.com/code/${kernelId}`;
+          await runKaggleCLI(context, ['kernels', 'output', kernelId, '-p', dest], root);
+          const errorContent = `Kaggle Run Error
+=====================================
+Time: ${new Date().toISOString()}
+Kernel: ${kernelId}
+Kaggle Page: ${kaggleUrl}
+
+Status Output:
+${statusRes.stdout}
+
+=====================================
+Please visit ${kaggleUrl} for detailed error information.
+`;
+          await fs.promises.writeFile(errorLogPath, errorContent, 'utf8');
+          vscode.window.showErrorMessage(`Kaggle run failed! Error log saved to: ${errorLogPath}`);
+        } catch {
+          vscode.window.showErrorMessage('Kaggle run failed! Unable to download error log.');
+        }
+        runsProvider.refresh();
+        return;
       }
     } catch {
       updateRunStatus('queued', `Waiting... (${remaining}s remaining)`);
@@ -1438,6 +1483,36 @@ async function pollAndDownload(
           runsProvider.refresh();
           return;
         }
+      } else if (
+        statusOutput.includes('error') ||
+        statusOutput.includes('failed') ||
+        statusOutput.includes('exception')
+      ) {
+        updateRunStatus('error', 'Run failed!');
+        onStatus?.('Run failed!', 0);
+        try {
+          const errorLogPath = path.join(root, 'RUN_ERROR.log');
+          const kaggleUrl = `https://www.kaggle.com/code/${kernelId}`;
+          await runKaggleCLI(context, ['kernels', 'output', kernelId, '-p', dest], root);
+          const errorContent = `Kaggle Run Error
+=====================================
+Time: ${new Date().toISOString()}
+Kernel: ${kernelId}
+Kaggle Page: ${kaggleUrl}
+
+Status Output:
+${statusRes.stdout}
+
+=====================================
+Please visit ${kaggleUrl} for detailed error information.
+`;
+          await fs.promises.writeFile(errorLogPath, errorContent, 'utf8');
+          vscode.window.showErrorMessage(`Kaggle run failed! Error log saved to: ${errorLogPath}`);
+        } catch {
+          vscode.window.showErrorMessage('Kaggle run failed! Unable to download error log.');
+        }
+        runsProvider.refresh();
+        return;
       } else {
         updateRunStatus('running', 'Run may still be in progress... (checking every 30s)');
       }
