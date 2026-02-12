@@ -25,12 +25,27 @@ export async function initProject(root: string, context: vscode.ExtensionContext
   });
   if (!username) return;
 
-  const accel = vscode.workspace
+  const defaultAccel = vscode.workspace
     .getConfiguration('kaggle')
     .get<string>('defaultAccelerator', 'none');
-  const internet = vscode.workspace
+  const accelItem = await vscode.window.showQuickPick(
+    ['none', 'gpu', 'tpu'].map(a => ({ label: a, picked: a === defaultAccel })),
+    { placeHolder: 'Select accelerator', matchOnDescription: true }
+  );
+  if (!accelItem) return;
+  const accel = accelItem.label;
+
+  const defaultInternet = vscode.workspace
     .getConfiguration('kaggle')
     .get<boolean>('defaultInternet', false);
+  const internetPick = await vscode.window.showQuickPick(
+    [
+      { label: 'Internet: Off', description: 'No internet access', picked: !defaultInternet },
+      { label: 'Internet: On', description: 'Enable internet access', picked: defaultInternet },
+    ],
+    { placeHolder: 'Enable internet access?', matchOnDescription: true }
+  );
+  const internet = internetPick?.label === 'Internet: On';
 
   const codeFile =
     (await vscode.window.showQuickPick(['notebook.ipynb', 'main.py'], {

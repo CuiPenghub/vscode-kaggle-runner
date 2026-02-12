@@ -193,9 +193,32 @@ export async function runKaggleCLI(
       cliPath,
       args,
       { cwd, env: { ...process.env, KAGGLE_USERNAME: creds.username, KAGGLE_KEY: creds.key } },
-      (error, stdout, stderr) => {
+      async (error, stdout, stderr) => {
         if (stdout) OUTPUT.append(stdout);
         if (stderr) OUTPUT.append(stderr);
+
+        // Check for outdated version warning and prompt upgrade
+        if (stderr && stderr.includes('outdated')) {
+          const versionMatch = stderr.match(/installed:\s*([\d.]+)/);
+          const latestMatch = stderr.match(/latest\s*\(?([\d.]+)\)?/);
+          const installedVersion = versionMatch ? versionMatch[1] : 'unknown';
+          const latestVersion = latestMatch ? latestMatch[1] : 'latest';
+
+          const upgradeAction = 'Upgrade';
+          const ignoreAction = 'Ignore';
+          const action = await vscode.window.showWarningMessage(
+            `Kaggle CLI is outdated (${installedVersion} → ${latestVersion}). Consider upgrading.`,
+            upgradeAction,
+            ignoreAction
+          );
+
+          if (action === upgradeAction) {
+            const terminal = vscode.window.createTerminal('Kaggle Update');
+            terminal.sendText('pip install --upgrade kaggle');
+            terminal.show();
+          }
+        }
+
         if (error) return reject(error);
         resolve({ code: 0, stdout, stderr });
       }

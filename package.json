@@ -2,7 +2,7 @@
   "name": "kaggle-runner",
   "displayName": "Kaggle Runner",
   "description": "Run Jupyter notebooks & Python scripts on Kaggle cloud directly from VSCode. Push code, configure GPU/TPU, fetch outputs with real-time status updates.",
-  "version": "1.1.5",
+  "version": "1.1.6",
   "publisher": "PengCui",
   "author": "Peng Cui",
   "license": "MIT",
